@@ -9,15 +9,28 @@ class AcouModel:
             aic = abs((parameter_num-math.log(t_loss))/(parameter_num-math.log(t_1_loss)))
         return aic
 
-    def impact_decay(self,alpha,wi,w_i_1):
-        impact = wi-w_i_1*math.exp(-alpha)
-        return abs(impact)
+    def impact_decay(self,alpha,wi,wi_1):
+        impact = wi-wi_1*math.exp(-alpha)
+        return impact
 
     def Acou(self,parameter_num,epoch,t_loss_list,t_1_loss_list,alpha,model_name,adaptive_strategy):
         task_n = len(t_loss_list)
         t_noeffect_loss = [t_loss_list[0] if i == 0 else self.impact_decay(alpha,t_loss_list[i],t_loss_list[i-1]) for i in range(task_n)]
         t_1_noeffect_loss = [t_1_loss_list[0] if i == 0 else self.impact_decay(alpha,t_1_loss_list[i],t_1_loss_list[i-1]) for i in range(task_n)]
         total_loss = 0
+        
+        if adaptive_strategy == 'loss_combine':
+            for i in range(task_n):
+                wi = 1
+                wi_1 = 1
+                if i < task_n - 1:
+                    weight = self.impact_decay(alpha, wi, wi_1)
+                    total_loss += weight*t_loss_list[i]
+                else:
+                    total_loss += t_loss_list[i]
+            return total_loss
+        
+        # for future work
         if adaptive_strategy == 'both':
             denominator = {}
             for i in range(task_n):
@@ -48,17 +61,7 @@ class AcouModel:
             else:
                 return total_loss
 
-        if adaptive_strategy == 'loss_combine':
-            for i in range(task_n):
-                wi = 1
-                wi_1 = 1
-                if i < task_n - 1:
-                    weight = self.impact_decay(alpha, wi, wi_1)
-                    total_loss += weight*t_loss_list[i]
-                else:
-                    total_loss += t_loss_list[i]
-            return total_loss
-
+        # for future work
         if adaptive_strategy == 'loss_balance':
             denominator = {}
             for i in range(task_n):
@@ -69,3 +72,5 @@ class AcouModel:
                 wi = self.AIC(parameter_num, epoch, t_noeffect_loss[i], t_1_noeffect_loss[i]) / denominator_final_number
                 total_loss += wi*t_loss_list[i]
             return total_loss
+        
+        
